@@ -23,6 +23,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _resultState = MutableLiveData<String>()
     val resultState: LiveData<String> = _resultState
 
+    private val keyStoreWrapper = KeyStoreWrapper()
+    private val cipherWrapper = CipherWrapper()
+    var encript: String = ""
+
     private val viewVO = MainVO(false, View.OnClickListener {
 
         when (val context = it.context) {
@@ -62,6 +66,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun showPrompt(context: FragmentActivity) {
 
+        keyStoreWrapper.createAndroidKeyStoreAsymmetricKey("Biometric")
+        val keyPair = keyStoreWrapper.getAndroidKeyStoreAsymmetricKeyPair("Biometric")
+
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Biometric login for my app")
             .setSubtitle("Log in using your biometric credential")
@@ -89,9 +96,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     // authentication code (MAC) associated with the crypto object,
                     // so you can use it in your app's crypto-driven workflows.
 
-                    result.cryptoObject
+                    result.cryptoObject?.cipher
 
-                    _resultState.postValue("Authentication success")
+                    val message = cipherWrapper.decrypt(encript)
+
+                    _resultState.postValue("Authentication success ^$message")
                 }
 
                 override fun onAuthenticationFailed() {
@@ -101,7 +110,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             })
 
+
+
+        encript = cipherWrapper.encrypt("leonardo", keyPair.public)
+
         // Displays the "log in" prompt.
-        biometricPrompt.authenticate(promptInfo)
+        biometricPrompt.authenticate(
+            promptInfo,
+            BiometricPrompt.CryptoObject(cipherWrapper.decryptCipher(keyPair.private))
+        )
     }
 }
